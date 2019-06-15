@@ -9,9 +9,11 @@
 
 #include "lodepng.h" //Used for png encoding.
 
-const int WIDTH = 3200; // Size of rendered mandelbrot set.
-const int HEIGHT = 2400; // Size of renderered mandelbrot set.
-const int WORKGROUP_SIZE = 32; // Workgroup size in compute shader.
+#include <iostream>
+
+const int WIDTH          = 3200;  // Size of rendered mandelbrot set.
+const int HEIGHT         = 2400;  // Size of renderered mandelbrot set.
+const int WORKGROUP_SIZE = 32;    // Workgroup size in compute shader.
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -20,14 +22,15 @@ const bool enableValidationLayers = true;
 #endif
 
 // Used for validating return values of Vulkan API calls.
-#define VK_CHECK_RESULT(f) 																				\
+//
+#define VK_CHECK_RESULT(f) 													\
 {																										\
-    VkResult res = (f);																					\
-    if (res != VK_SUCCESS)																				\
-    {																									\
+    VkResult res = (f);															\
+    if (res != VK_SUCCESS)													\
+    {																								\
         printf("Fatal : VkResult is %d in %s at line %d\n", res,  __FILE__, __LINE__); \
-        assert(res == VK_SUCCESS);																		\
-    }																									\
+        assert(res == VK_SUCCESS);									\
+    }																								\
 }
 
 /*
@@ -121,29 +124,35 @@ private:
     uint32_t queueFamilyIndex;
 
 public:
-    void run() {
-        // Buffer size of the storage buffer that will contain the rendered mandelbrot set.
-        bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
+    void run()
+    {
+      // Buffer size of the storage buffer that will contain the rendered mandelbrot set.
+      bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
 
-        // Initialize vulkan:
-        createInstance();
-        findPhysicalDevice();
-        createDevice();
-        createBuffer();
-        createDescriptorSetLayout();
-        createDescriptorSet();
-        createComputePipeline();
-        createCommandBuffer();
+      std::cout << "init vulkan ... " << std::endl;
+      createInstance();
+      findPhysicalDevice();
+      createDevice();
 
-        // Finally, run the recorded command buffer.
-        runCommandBuffer();
+      std::cout << "create resources ... " << std::endl;
+      createBuffer();
+      createDescriptorSetLayout();
+      createDescriptorSet();
+      createComputePipeline();
+      createCommandBuffer();
 
-        // The former command rendered a mandelbrot set to a buffer.
-        // Save that buffer as a png on disk.
-        saveRenderedImage();
+      // Finally, run the recorded command buffer.
+      std::cout << "do usefull computations ... " << std::endl;
+      runCommandBuffer();
 
-        // Clean up all vulkan resources.
-        cleanup();
+      // The former command rendered a mandelbrot set to a buffer.
+      // Save that buffer as a png on disk.
+      std::cout << "save image ... " << std::endl;
+      saveRenderedImage();
+
+      // Clean up all vulkan resources.
+      std::cout << "destroy resources ... " << std::endl;
+      cleanup();
     }
 
     void saveRenderedImage() {
