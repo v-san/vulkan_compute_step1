@@ -16,29 +16,21 @@ const int HEIGHT         = 2400;  // Size of renderered mandelbrot set.
 const int WORKGROUP_SIZE = 32;    // Workgroup size in compute shader.
 
 #ifdef NDEBUG
-const bool enableValidationLayers = false;
+constexpr bool enableValidationLayers = false;
 #else
-const bool enableValidationLayers = true;
+constexpr bool enableValidationLayers = true;
 #endif
 
-// Used for validating return values of Vulkan API calls.
-//
-#define VK_CHECK_RESULT(f) 													\
-{																										\
-    VkResult res = (f);															\
-    if (res != VK_SUCCESS)													\
-    {																								\
-        printf("Fatal : VkResult is %d in %s at line %d\n", res,  __FILE__, __LINE__); \
-        assert(res == VK_SUCCESS);									\
-    }																								\
-}
+#include "vk_utils.h"
+
 
 /*
 The application launches a compute shader that renders the mandelbrot set,
 by rendering it into a storage buffer.
 The storage buffer is then read from the GPU, and saved as .png. 
 */
-class ComputeApplication {
+class ComputeApplication
+{
 private:
     // The pixels of the rendered mandelbrot set are in this format:
     struct Pixel {
@@ -124,13 +116,16 @@ private:
     uint32_t queueFamilyIndex;
 
 public:
+
     void run()
     {
       // Buffer size of the storage buffer that will contain the rendered mandelbrot set.
       bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
 
       std::cout << "init vulkan ... " << std::endl;
-      createInstance();
+      
+      instance = vk_utils::CreateInstance(enableValidationLayers, enabledLayers, &debugReportCallbackFn, &debugReportCallback);
+
       findPhysicalDevice();
       createDevice();
 
@@ -155,7 +150,8 @@ public:
       cleanup();
     }
 
-    void saveRenderedImage() {
+    void saveRenderedImage()
+    {
         void* mappedMemory = NULL;
         // Map the buffer memory, so that we can read from it on the CPU.
         vkMapMemory(device, bufferMemory, 0, bufferSize, 0, &mappedMemory);
@@ -187,134 +183,10 @@ public:
         int32_t                                     messageCode,
         const char*                                 pLayerPrefix,
         const char*                                 pMessage,
-        void*                                       pUserData) {
-
+        void*                                       pUserData)
+    {
         printf("Debug Report: %s: %s\n", pLayerPrefix, pMessage);
-
         return VK_FALSE;
-     }
-
-    void createInstance() {
-        std::vector<const char *> enabledExtensions;
-
-        /*
-        By enabling validation layers, Vulkan will emit warnings if the API
-        is used incorrectly. We shall enable the layer VK_LAYER_LUNARG_standard_validation,
-        which is basically a collection of several useful validation layers.
-        */
-        if (enableValidationLayers) {
-            /*
-            We get all supported layers with vkEnumerateInstanceLayerProperties.
-            */
-            uint32_t layerCount;
-            vkEnumerateInstanceLayerProperties(&layerCount, NULL);
-
-            std::vector<VkLayerProperties> layerProperties(layerCount);
-            vkEnumerateInstanceLayerProperties(&layerCount, layerProperties.data());
-
-            /*
-            And then we simply check if VK_LAYER_LUNARG_standard_validation is among the supported layers.
-            */
-            bool foundLayer = false;
-            for (VkLayerProperties prop : layerProperties) {
-                
-                if (strcmp("VK_LAYER_LUNARG_standard_validation", prop.layerName) == 0) {
-                    foundLayer = true;
-                    break;
-                }
-
-            }
-            
-            if (!foundLayer) {
-                throw std::runtime_error("Layer VK_LAYER_LUNARG_standard_validation not supported\n");
-            }
-            enabledLayers.push_back("VK_LAYER_LUNARG_standard_validation"); // Alright, we can use this layer.
-
-            /*
-            We need to enable an extension named VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
-            in order to be able to print the warnings emitted by the validation layer.
-
-            So again, we just check if the extension is among the supported extensions.
-            */
-            
-            uint32_t extensionCount;
-            
-            vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
-            std::vector<VkExtensionProperties> extensionProperties(extensionCount);
-            vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionProperties.data());
-
-            bool foundExtension = false;
-            for (VkExtensionProperties prop : extensionProperties) {
-                if (strcmp(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, prop.extensionName) == 0) {
-                    foundExtension = true;
-                    break;
-                }
-
-            }
-
-            if (!foundExtension) {
-                throw std::runtime_error("Extension VK_EXT_DEBUG_REPORT_EXTENSION_NAME not supported\n");
-            }
-            enabledExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-        }		
-
-        /*
-        Next, we actually create the instance.
-        
-        */
-        
-        /*
-        Contains application info. This is actually not that important.
-        The only real important field is apiVersion.
-        */
-        VkApplicationInfo applicationInfo = {};
-        applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        applicationInfo.pApplicationName = "Hello world app";
-        applicationInfo.applicationVersion = 0;
-        applicationInfo.pEngineName = "awesomeengine";
-        applicationInfo.engineVersion = 0;
-        applicationInfo.apiVersion = VK_API_VERSION_1_0;;
-        
-        VkInstanceCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        createInfo.flags = 0;
-        createInfo.pApplicationInfo = &applicationInfo;
-        
-        // Give our desired layers and extensions to vulkan.
-        createInfo.enabledLayerCount = enabledLayers.size();
-        createInfo.ppEnabledLayerNames = enabledLayers.data();
-        createInfo.enabledExtensionCount = enabledExtensions.size();
-        createInfo.ppEnabledExtensionNames = enabledExtensions.data();
-    
-        /*
-        Actually create the instance.
-        Having created the instance, we can actually start using vulkan.
-        */
-        VK_CHECK_RESULT(vkCreateInstance(
-            &createInfo,
-            NULL,
-            &instance));
-
-        /*
-        Register a callback function for the extension VK_EXT_DEBUG_REPORT_EXTENSION_NAME, so that warnings emitted from the validation
-        layer are actually printed.
-        */
-        if (enableValidationLayers) {
-            VkDebugReportCallbackCreateInfoEXT createInfo = {};
-            createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-            createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-            createInfo.pfnCallback = &debugReportCallbackFn;
-
-            // We have to explicitly load this function.
-            auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
-            if (vkCreateDebugReportCallbackEXT == nullptr) {
-                throw std::runtime_error("Could not load vkCreateDebugReportCallbackEXT");
-            }
-
-            // Create and register callback.
-            VK_CHECK_RESULT(vkCreateDebugReportCallbackEXT(instance, &createInfo, NULL, &debugReportCallback));
-        }
-    
     }
 
     void findPhysicalDevice() {
