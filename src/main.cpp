@@ -106,15 +106,6 @@ private:
     */
     VkQueue queue; // a queue supporting compute operations.
 
-    /*
-    Groups of queues that have the same capabilities(for instance, they all supports graphics and computer operations),
-    are grouped into queue families. 
-    
-    When submitting a command buffer, you must specify to which queue in the family you are submitting to. 
-    This variable keeps track of the index of that queue in its family. 
-    */
-    uint32_t queueFamilyIndex;
-
 public:
 
     void run()
@@ -133,7 +124,16 @@ public:
 
       physicalDevice = vk_utils::FindPhysicalDevice(instance, true, deviceId);
 
-      device         = vk_utils::CreateLogicalDevice(vk_utils::GetComputeQueueFamilyIndex(physicalDevice), physicalDevice, enabledLayers);
+      /*
+      Groups of queues that have the same capabilities(for instance, they all supports graphics and computer operations),
+      are grouped into queue families.
+
+      When submitting a command buffer, you must specify to which queue in the family you are submitting to.
+      This variable keeps track of the index of that queue in its family.
+      */
+      uint32_t queueFamilyIndex = vk_utils::GetComputeQueueFamilyIndex(physicalDevice);
+
+      device = vk_utils::CreateLogicalDevice(queueFamilyIndex, physicalDevice, enabledLayers);
 
       vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
 
@@ -145,7 +145,7 @@ public:
       createDescriptorSetLayout();
       createDescriptorSet();
       createComputePipeline();
-      createCommandBuffer();
+      createCommandBuffer(queueFamilyIndex);
 
       // Finally, run the recorded command buffer.
       std::cout << "do usefull computations ... " << std::endl;
@@ -253,9 +253,9 @@ public:
         */
         
         VkBufferCreateInfo bufferCreateInfo = {};
-        bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferCreateInfo.size = bufferSize; // buffer size in bytes. 
-        bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT; // buffer is used as a storage buffer.
+        bufferCreateInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferCreateInfo.size        = bufferSize; // buffer size in bytes.
+        bufferCreateInfo.usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT; // buffer is used as a storage buffer.
         bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // buffer is exclusive to a single queue family at a time. 
 
         VK_CHECK_RESULT(vkCreateBuffer(device, &bufferCreateInfo, NULL, &buffer)); // create buffer.
@@ -286,8 +286,7 @@ public:
         visible to the host(CPU), without having to call any extra flushing commands. So mainly for convenience, we set
         this flag.
         */
-        allocateInfo.memoryTypeIndex = findMemoryType(
-            memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
         VK_CHECK_RESULT(vkAllocateMemory(device, &allocateInfo, NULL, &bufferMemory)); // allocate memory on device.
         
@@ -469,7 +468,7 @@ public:
             NULL, &pipeline));
     }
 
-    void createCommandBuffer() {
+    void createCommandBuffer(uint32_t queueFamilyIndex) {
         /*
         We are getting closer to the end. In order to send commands to the device(GPU),
         we must first record commands into a command buffer.
