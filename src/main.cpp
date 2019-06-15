@@ -119,10 +119,9 @@ public:
 
     void run()
     {
-      // Buffer size of the storage buffer that will contain the rendered mandelbrot set.
-      bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
+      const int deviceId = 0;
 
-      std::cout << "init vulkan ... " << std::endl;
+      std::cout << "init vulkan for device " << deviceId << " ... " << std::endl;
 
       instance = vk_utils::CreateInstance(enableValidationLayers, enabledLayers);
 
@@ -132,8 +131,11 @@ public:
                                           &debugReportCallbackFn, &debugReportCallback);
       }
 
-      findPhysicalDevice();
+      physicalDevice = vk_utils::FindPhysicalDevice(instance, true, deviceId);
       createDevice();
+
+      // Buffer size of the storage buffer that will contain the rendered mandelbrot set.
+      bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
 
       std::cout << "create resources ... " << std::endl;
       createBuffer();
@@ -193,53 +195,6 @@ public:
     {
         printf("Debug Report: %s: %s\n", pLayerPrefix, pMessage);
         return VK_FALSE;
-    }
-
-    void findPhysicalDevice() {
-        /*
-        In this function, we find a physical device that can be used with Vulkan.
-        */
-
-        /*
-        So, first we will list all physical devices on the system with vkEnumeratePhysicalDevices .
-        */
-        uint32_t deviceCount;
-        vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
-        if (deviceCount == 0) {
-            throw std::runtime_error("could not find a device with vulkan support");
-        }
-
-        std::vector<VkPhysicalDevice> devices(deviceCount);
-        vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
-        /*
-        Next, we choose a device that can be used for our purposes. 
-
-        With VkPhysicalDeviceFeatures(), we can retrieve a fine-grained list of physical features supported by the device.
-        However, in this demo, we are simply launching a simple compute shader, and there are no 
-        special physical features demanded for this task.
-
-        With VkPhysicalDeviceProperties(), we can obtain a list of physical device properties. Most importantly,
-        we obtain a list of physical device limitations. For this application, we launch a compute shader,
-        and the maximum size of the workgroups and total number of compute shader invocations is limited by the physical device,
-        and we should ensure that the limitations named maxComputeWorkGroupCount, maxComputeWorkGroupInvocations and 
-        maxComputeWorkGroupSize are not exceeded by our application.  Moreover, we are using a storage buffer in the compute shader,
-        and we should ensure that it is not larger than the device can handle, by checking the limitation maxStorageBufferRange. 
-
-        However, in our application, the workgroup size and total number of shader invocations is relatively small, and the storage buffer is
-        not that large, and thus a vast majority of devices will be able to handle it. This can be verified by looking at some devices at_
-        http://vulkan.gpuinfo.org/
-
-        Therefore, to keep things simple and clean, we will not perform any such checks here, and just pick the first physical
-        device in the list. But in a real and serious application, those limitations should certainly be taken into account.
-
-        */
-        for (VkPhysicalDevice device : devices) {
-            if (true) { // As above stated, we do no feature checks, so just accept.
-                physicalDevice = device;
-                break;
-            }
-        }
     }
 
     // Returns the index of a queue family that supports compute operations. 

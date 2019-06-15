@@ -8,6 +8,9 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 
+#include <stdexcept>
+#include <sstream>
+
 namespace vk_utils
 {
 
@@ -21,13 +24,25 @@ namespace vk_utils
                                                             void*                      pUserData);
 
 
+  static void RunTimeError(const char* file, int line, const char* msg)
+  {
+    std::stringstream strout;
+    strout << "runtime_error at " << file << ", line " << line << ": " << msg << std::endl;
+    throw std::runtime_error(strout.str().c_str());
+  }
+
 
   VkInstance CreateInstance(bool a_enableValidationLayers, std::vector<const char *>& a_enabledLayers);
-  
-  void InitDebugReportCallback(VkInstance a_instance, DebugReportCallbackFuncType a_callback, VkDebugReportCallbackEXT* a_debugReportCallback);
+  void       InitDebugReportCallback(VkInstance a_instance, DebugReportCallbackFuncType a_callback, VkDebugReportCallbackEXT* a_debugReportCallback);
+
+  VkPhysicalDevice FindPhysicalDevice(VkInstance a_instance, bool a_printInfo, int a_preferredDeviceId);
 
 };
 
+#undef  RUN_TIME_ERROR
+#undef  RUN_TIME_ERROR_AT
+#define RUN_TIME_ERROR(e) (vk_utils::RunTimeError(__FILE__,__LINE__,(e)))
+#define RUN_TIME_ERROR_AT(e, file, line) (vk_utils::RunTimeError((file),(line),(e)))
 
 // Used for validating return values of Vulkan API calls.
 //
