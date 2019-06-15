@@ -132,7 +132,10 @@ public:
       }
 
       physicalDevice = vk_utils::FindPhysicalDevice(instance, true, deviceId);
-      createDevice();
+
+      device         = vk_utils::CreateLogicalDevice(vk_utils::GetComputeQueueFamilyIndex(physicalDevice), physicalDevice, enabledLayers);
+
+      vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
 
       // Buffer size of the storage buffer that will contain the rendered mandelbrot set.
       bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
@@ -223,44 +226,6 @@ public:
         }
 
         return i;
-    }
-
-    void createDevice() {
-        /*
-        We create the logical device in this function.
-        */
-
-        /*
-        When creating the device, we also specify what queues it has.
-        */
-        VkDeviceQueueCreateInfo queueCreateInfo = {};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueFamilyIndex = getComputeQueueFamilyIndex(); // find queue family with compute capability.
-        queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
-        queueCreateInfo.queueCount = 1; // create one queue in this family. We don't need more.
-        float queuePriorities = 1.0;  // we only have one queue, so this is not that imporant. 
-        queueCreateInfo.pQueuePriorities = &queuePriorities;
-
-        /*
-        Now we create the logical device. The logical device allows us to interact with the physical
-        device.
-        */
-        VkDeviceCreateInfo deviceCreateInfo = {};
-
-        // Specify any desired device features here. We do not need any for this application, though.
-        VkPhysicalDeviceFeatures deviceFeatures = {};
-
-        deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        deviceCreateInfo.enabledLayerCount = enabledLayers.size();  // need to specify validation layers here as well.
-        deviceCreateInfo.ppEnabledLayerNames = enabledLayers.data();
-        deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo; // when creating the logical device, we also specify what queues it has.
-        deviceCreateInfo.queueCreateInfoCount = 1;
-        deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
-
-        VK_CHECK_RESULT(vkCreateDevice(physicalDevice, &deviceCreateInfo, NULL, &device)); // create logical device.
-
-        // Get a handle to the only member of the queue family.
-        vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
     }
 
     // find memory type with desired properties.

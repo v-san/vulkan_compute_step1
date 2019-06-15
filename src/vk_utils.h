@@ -37,6 +37,9 @@ namespace vk_utils
 
   VkPhysicalDevice FindPhysicalDevice(VkInstance a_instance, bool a_printInfo, int a_preferredDeviceId);
 
+  uint32_t GetComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice);
+  VkDevice CreateLogicalDevice(uint32_t queueFamilyIndex, VkPhysicalDevice physicalDevice, const std::vector<const char *>& a_enabledLayers);
+
 };
 
 #undef  RUN_TIME_ERROR

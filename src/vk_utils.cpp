@@ -216,3 +216,68 @@ VkPhysicalDevice vk_utils::FindPhysicalDevice(VkInstance a_instance, bool a_prin
 
   return physicalDevice;
 }
+
+uint32_t vk_utils::GetComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice)
+{
+  uint32_t queueFamilyCount;
+
+  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, NULL);
+
+  // Retrieve all queue families.
+  std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+
+  // Now find a family that supports compute.
+  uint32_t i = 0;
+  for (; i < queueFamilies.size(); ++i)
+  {
+    VkQueueFamilyProperties props = queueFamilies[i];
+
+    if (props.queueCount > 0 && (props.queueFlags & VK_QUEUE_COMPUTE_BIT))
+    {
+      // found a queue with compute. We're done!
+      break;
+    }
+  }
+
+  if (i == queueFamilies.size())
+    RUN_TIME_ERROR("could not find a queue family that supports operations");
+
+  return i;
+}
+
+
+VkDevice vk_utils::CreateLogicalDevice(uint32_t queueFamilyIndex, VkPhysicalDevice physicalDevice, const std::vector<const char *>& a_enabledLayers)
+{
+
+  /*
+  When creating the device, we also specify what queues it has.
+  */
+  VkDeviceQueueCreateInfo queueCreateInfo = {};
+  queueCreateInfo.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+  queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+  queueCreateInfo.queueCount       = 1; // create one queue in this family. We don't need more.
+  float queuePriorities            = 1.0;  // we only have one queue, so this is not that imporant.
+  queueCreateInfo.pQueuePriorities = &queuePriorities;
+
+  /*
+  Now we create the logical device. The logical device allows us to interact with the physical
+  device.
+  */
+  VkDeviceCreateInfo deviceCreateInfo = {};
+
+  // Specify any desired device features here. We do not need any for this application, though.
+  VkPhysicalDeviceFeatures deviceFeatures = {};
+
+  deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+  deviceCreateInfo.enabledLayerCount    = a_enabledLayers.size();  // need to specify validation layers here as well.
+  deviceCreateInfo.ppEnabledLayerNames  = a_enabledLayers.data();
+  deviceCreateInfo.pQueueCreateInfos    = &queueCreateInfo; // when creating the logical device, we also specify what queues it has.
+  deviceCreateInfo.queueCreateInfoCount = 1;
+  deviceCreateInfo.pEnabledFeatures     = &deviceFeatures;
+
+  VkDevice device;
+  VK_CHECK_RESULT(vkCreateDevice(physicalDevice, &deviceCreateInfo, NULL, &device)); // create logical device.
+
+  return device;
+}
