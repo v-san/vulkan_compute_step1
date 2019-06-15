@@ -123,8 +123,14 @@ public:
       bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
 
       std::cout << "init vulkan ... " << std::endl;
-      
-      instance = vk_utils::CreateInstance(enableValidationLayers, enabledLayers, &debugReportCallbackFn, &debugReportCallback);
+
+      instance = vk_utils::CreateInstance(enableValidationLayers, enabledLayers);
+
+      if(enableValidationLayers)
+      {
+        vk_utils::InitDebugReportCallback(instance,
+                                          &debugReportCallbackFn, &debugReportCallback);
+      }
 
       findPhysicalDevice();
       createDevice();

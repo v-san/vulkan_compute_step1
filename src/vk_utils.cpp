@@ -9,8 +9,7 @@
 #include <stdexcept>
 
 
-VkInstance vk_utils::CreateInstance(bool a_enableValidationLayers,
-                                    std::vector<const char *>& a_enabledLayers, DebugReportCallbackFuncType a_callback, VkDebugReportCallbackEXT* a_debugReportCallback)
+VkInstance vk_utils::CreateInstance(bool a_enableValidationLayers, std::vector<const char *>& a_enabledLayers)
 {
   std::vector<const char *> enabledExtensions;
 
@@ -78,7 +77,6 @@ VkInstance vk_utils::CreateInstance(bool a_enableValidationLayers,
 
   /*
   Next, we actually create the instance.
-
   */
 
   /*
@@ -86,12 +84,12 @@ VkInstance vk_utils::CreateInstance(bool a_enableValidationLayers,
   The only real important field is apiVersion.
   */
   VkApplicationInfo applicationInfo = {};
-  applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  applicationInfo.pApplicationName = "Hello world app";
+  applicationInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+  applicationInfo.pApplicationName   = "Hello world app";
   applicationInfo.applicationVersion = 0;
-  applicationInfo.pEngineName = "awesomeengine";
-  applicationInfo.engineVersion = 0;
-  applicationInfo.apiVersion = VK_API_VERSION_1_0;;
+  applicationInfo.pEngineName        = "awesomeengine";
+  applicationInfo.engineVersion      = 0;
+  applicationInfo.apiVersion         = VK_API_VERSION_1_0;;
 
   VkInstanceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -99,9 +97,9 @@ VkInstance vk_utils::CreateInstance(bool a_enableValidationLayers,
   createInfo.pApplicationInfo = &applicationInfo;
 
   // Give our desired layers and extensions to vulkan.
-  createInfo.enabledLayerCount = a_enabledLayers.size();
-  createInfo.ppEnabledLayerNames = a_enabledLayers.data();
-  createInfo.enabledExtensionCount = enabledExtensions.size();
+  createInfo.enabledLayerCount       = a_enabledLayers.size();
+  createInfo.ppEnabledLayerNames     = a_enabledLayers.data();
+  createInfo.enabledExtensionCount   = enabledExtensions.size();
   createInfo.ppEnabledExtensionNames = enabledExtensions.data();
 
   /*
@@ -110,27 +108,27 @@ VkInstance vk_utils::CreateInstance(bool a_enableValidationLayers,
   */
   VkInstance instance;
   VK_CHECK_RESULT(vkCreateInstance(&createInfo, NULL, &instance));
-
-  /*
-  Register a callback function for the extension VK_EXT_DEBUG_REPORT_EXTENSION_NAME, so that warnings emitted from the validation
-  layer are actually printed.
-  */
-  if (a_enableValidationLayers)
-  {
-    VkDebugReportCallbackCreateInfoEXT createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-    createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-    createInfo.pfnCallback = a_callback;
-
-    // We have to explicitly load this function.
-    auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
-    if (vkCreateDebugReportCallbackEXT == nullptr) {
-      throw std::runtime_error("Could not load vkCreateDebugReportCallbackEXT");
-    }
-
-    // Create and register callback.
-    VK_CHECK_RESULT(vkCreateDebugReportCallbackEXT(instance, &createInfo, NULL, a_debugReportCallback));
-  }
-
+  
   return instance;
+}
+
+
+void vk_utils::InitDebugReportCallback(VkInstance a_instance, DebugReportCallbackFuncType a_callback, VkDebugReportCallbackEXT* a_debugReportCallback)
+{
+  // Register a callback function for the extension VK_EXT_DEBUG_REPORT_EXTENSION_NAME, so that warnings emitted from the validation
+  // layer are actually printed.
+  
+  VkDebugReportCallbackCreateInfoEXT createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+  createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+  createInfo.pfnCallback = a_callback;
+
+  // We have to explicitly load this function.
+  //
+  auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(a_instance, "vkCreateDebugReportCallbackEXT");
+  if (vkCreateDebugReportCallbackEXT == nullptr)
+    throw std::runtime_error("Could not load vkCreateDebugReportCallbackEXT");
+
+  // Create and register callback.
+  VK_CHECK_RESULT(vkCreateDebugReportCallbackEXT(a_instance, &createInfo, NULL, a_debugReportCallback));
 }

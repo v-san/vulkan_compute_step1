@@ -22,8 +22,9 @@ namespace vk_utils
 
 
 
-  VkInstance CreateInstance(bool a_enableValidationLayers, std::vector<const char *>& a_enabledLayers, DebugReportCallbackFuncType a_callback, VkDebugReportCallbackEXT* a_debugReportCallback);
-
+  VkInstance CreateInstance(bool a_enableValidationLayers, std::vector<const char *>& a_enabledLayers);
+  
+  void InitDebugReportCallback(VkInstance a_instance, DebugReportCallbackFuncType a_callback, VkDebugReportCallbackEXT* a_debugReportCallback);
 
 };
 
