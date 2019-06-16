@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <iostream>
 
+#include <cmath>
 
 VkInstance vk_utils::CreateInstance(bool a_enableValidationLayers, std::vector<const char *>& a_enabledLayers)
 {
@@ -280,4 +281,55 @@ VkDevice vk_utils::CreateLogicalDevice(uint32_t queueFamilyIndex, VkPhysicalDevi
   VK_CHECK_RESULT(vkCreateDevice(physicalDevice, &deviceCreateInfo, NULL, &device)); // create logical device.
 
   return device;
+}
+
+
+uint32_t vk_utils::FindMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice)
+{
+  VkPhysicalDeviceMemoryProperties memoryProperties;
+
+  vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+  /*
+  How does this search work?
+  See the documentation of VkPhysicalDeviceMemoryProperties for a detailed description.
+  */
+  for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
+  {
+    if ((memoryTypeBits & (1 << i)) &&
+        ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties))
+      return i;
+  }
+
+  return -1;
+}
+
+std::vector<uint32_t> vk_utils::ReadFile(const char* filename)
+{
+  FILE* fp = fopen(filename, "rb");
+  if (fp == NULL)
+  {
+    std::string errorMsg = std::string("vk_utils::ReadFile, can't open file ") + std::string(filename);
+    RUN_TIME_ERROR(errorMsg.c_str());
+  }
+
+  // get file size.
+  fseek(fp, 0, SEEK_END);
+  long filesize = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+
+  long filesizepadded = long(ceil(filesize / 4.0)) * 4;
+
+  std::vector<uint32_t> resData(filesizepadded/4);
+
+  // read file contents.
+  char *str = (char*)resData.data();
+  fread(str, filesize, sizeof(char), fp);
+  fclose(fp);
+
+  // data padding.
+  for (int i = filesize; i < filesizepadded; i++)
+    str[i] = 0;
+
+  return resData;
 }

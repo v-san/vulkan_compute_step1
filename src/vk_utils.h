@@ -39,7 +39,9 @@ namespace vk_utils
 
   uint32_t GetComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice);
   VkDevice CreateLogicalDevice(uint32_t queueFamilyIndex, VkPhysicalDevice physicalDevice, const std::vector<const char *>& a_enabledLayers);
+  uint32_t FindMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
 
+  std::vector<uint32_t> ReadFile(const char* filename);
 };
 
 #undef  RUN_TIME_ERROR

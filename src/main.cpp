@@ -140,24 +140,26 @@ public:
       // Buffer size of the storage buffer that will contain the rendered mandelbrot set.
       bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
 
-      std::cout << "create resources ... " << std::endl;
+      std::cout << "creating resources ... " << std::endl;
       createBuffer();
       createDescriptorSetLayout();
       createDescriptorSet();
+
+      std::cout << "compiling shaders  ... " << std::endl;
       createComputePipeline();
       createCommandBuffer(queueFamilyIndex);
 
       // Finally, run the recorded command buffer.
-      std::cout << "do usefull computations ... " << std::endl;
+      std::cout << "doing computations ... " << std::endl;
       runCommandBuffer();
 
       // The former command rendered a mandelbrot set to a buffer.
       // Save that buffer as a png on disk.
-      std::cout << "save image ... " << std::endl;
+      std::cout << "saving image       ... " << std::endl;
       saveRenderedImage();
 
       // Clean up all vulkan resources.
-      std::cout << "destroy resources ... " << std::endl;
+      std::cout << "destroying all     ... " << std::endl;
       cleanup();
     }
 
@@ -200,51 +202,6 @@ public:
         return VK_FALSE;
     }
 
-    // Returns the index of a queue family that supports compute operations. 
-    uint32_t getComputeQueueFamilyIndex() {
-        uint32_t queueFamilyCount;
-
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, NULL);
-
-        // Retrieve all queue families.
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-        // Now find a family that supports compute.
-        uint32_t i = 0;
-        for (; i < queueFamilies.size(); ++i) {
-            VkQueueFamilyProperties props = queueFamilies[i];
-
-            if (props.queueCount > 0 && (props.queueFlags & VK_QUEUE_COMPUTE_BIT)) {
-                // found a queue with compute. We're done!
-                break;
-            }
-        }
-
-        if (i == queueFamilies.size()) {
-            throw std::runtime_error("could not find a queue family that supports operations");
-        }
-
-        return i;
-    }
-
-    // find memory type with desired properties.
-    uint32_t findMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties) {
-        VkPhysicalDeviceMemoryProperties memoryProperties;
-
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
-
-        /*
-        How does this search work?
-        See the documentation of VkPhysicalDeviceMemoryProperties for a detailed description. 
-        */
-        for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i) {
-            if ((memoryTypeBits & (1 << i)) &&
-                ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties))
-                return i;
-        }
-        return -1;
-    }
 
     void createBuffer() {
         /*
@@ -286,7 +243,7 @@ public:
         visible to the host(CPU), without having to call any extra flushing commands. So mainly for convenience, we set
         this flag.
         */
-        allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        allocateInfo.memoryTypeIndex = vk_utils::FindMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, physicalDevice);
 
         VK_CHECK_RESULT(vkAllocateMemory(device, &allocateInfo, NULL, &bufferMemory)); // allocate memory on device.
         
@@ -381,91 +338,52 @@ public:
         vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, NULL);
     }
 
-    // Read file into array of bytes, and cast to uint32_t*, then return.
-    // The data has been padded, so that it fits into an array uint32_t.
-    uint32_t* readFile(uint32_t& length, const char* filename) {
 
-        FILE* fp = fopen(filename, "rb");
-        if (fp == NULL) {
-            printf("Could not find or open file: %s\n", filename);
-        }
-
-        // get file size.
-        fseek(fp, 0, SEEK_END);
-        long filesize = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-
-        long filesizepadded = long(ceil(filesize / 4.0)) * 4;
-
-        // read file contents.
-        char *str = new char[filesizepadded];
-        fread(str, filesize, sizeof(char), fp);
-        fclose(fp);
-
-        // data padding. 
-        for (int i = filesize; i < filesizepadded; i++) {
-            str[i] = 0;
-        }
-
-        length = filesizepadded;
-        return (uint32_t *)str;
-    }
-
-    void createComputePipeline() {
-        /*
-        We create a compute pipeline here. 
-        */
-
-        /*
-        Create a shader module. A shader module basically just encapsulates some shader code.
-        */
-        uint32_t filelength;
-        // the code in comp.spv was created by running the command:
-        // glslangValidator.exe -V shader.comp
-        uint32_t* code = readFile(filelength, "shaders/comp.spv");
-        VkShaderModuleCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        createInfo.pCode = code;
-        createInfo.codeSize = filelength;
+    void createComputePipeline()
+    {
+      //Create a shader module. A shader module basically just encapsulates some shader code.
+      //
+      // the code in comp.spv was created by running the command:
+      // glslangValidator.exe -V shader.comp
+      std::vector<uint32_t> code = vk_utils::ReadFile("shaders/comp.spv");
+      VkShaderModuleCreateInfo createInfo = {};
+      createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+      createInfo.pCode    = code.data();
+      createInfo.codeSize = code.size()*sizeof(uint32_t);
         
-        VK_CHECK_RESULT(vkCreateShaderModule(device, &createInfo, NULL, &computeShaderModule));
-        delete[] code;
+      VK_CHECK_RESULT(vkCreateShaderModule(device, &createInfo, NULL, &computeShaderModule));
 
-        /*
-        Now let us actually create the compute pipeline.
-        A compute pipeline is very simple compared to a graphics pipeline.
-        It only consists of a single stage with a compute shader. 
+      /*
+      Now let us actually create the compute pipeline.
+      A compute pipeline is very simple compared to a graphics pipeline.
+      It only consists of a single stage with a compute shader.
 
-        So first we specify the compute shader stage, and it's entry point(main).
-        */
-        VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {};
-        shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        shaderStageCreateInfo.module = computeShaderModule;
-        shaderStageCreateInfo.pName = "main";
+      So first we specify the compute shader stage, and it's entry point(main).
+      */
+      VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {};
+      shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+      shaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+      shaderStageCreateInfo.module = computeShaderModule;
+      shaderStageCreateInfo.pName = "main";
 
-        /*
-        The pipeline layout allows the pipeline to access descriptor sets. 
-        So we just specify the descriptor set layout we created earlier.
-        */
-        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-        pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutCreateInfo.setLayoutCount = 1;
-        pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout; 
-        VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &pipelineLayout));
+      /*
+      The pipeline layout allows the pipeline to access descriptor sets.
+      So we just specify the descriptor set layout we created earlier.
+      */
+      VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+      pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+      pipelineLayoutCreateInfo.setLayoutCount = 1;
+      pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
+      VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &pipelineLayout));
 
-        VkComputePipelineCreateInfo pipelineCreateInfo = {};
-        pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        pipelineCreateInfo.stage = shaderStageCreateInfo;
-        pipelineCreateInfo.layout = pipelineLayout;
+      VkComputePipelineCreateInfo pipelineCreateInfo = {};
+      pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+      pipelineCreateInfo.stage = shaderStageCreateInfo;
+      pipelineCreateInfo.layout = pipelineLayout;
 
-        /*
-        Now, we finally create the compute pipeline. 
-        */
-        VK_CHECK_RESULT(vkCreateComputePipelines(
-            device, VK_NULL_HANDLE,
-            1, &pipelineCreateInfo,
-            NULL, &pipeline));
+      // Now, we finally create the compute pipeline.
+      //
+      VK_CHECK_RESULT(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, NULL, &pipeline));
     }
 
     void createCommandBuffer(uint32_t queueFamilyIndex) {
@@ -583,16 +501,19 @@ public:
     }
 };
 
-int main() {
-    ComputeApplication app;
+int main()
+{
+  ComputeApplication app;
 
-    try {
-        app.run();
-    }
-    catch (const std::runtime_error& e) {
-        printf("%s\n", e.what());
-        return EXIT_FAILURE;
-    }
+  try
+  {
+    app.run();
+  }
+  catch (const std::runtime_error& e)
+  {
+    printf("%s\n", e.what());
+    return EXIT_FAILURE;
+  }
     
-    return EXIT_SUCCESS;
+  return EXIT_SUCCESS;
 }
