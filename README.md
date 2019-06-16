@@ -7,12 +7,8 @@ For this demo, Vulkan is used to render the Mandelbrot set on the GPU. The demo 
 and is only ~400LOC. **The code is heavily commented, so it should be useful for people interested in learning Vulkan**.
 
 Vulkan validation layers can be installed from `https://vulkan.lunarg.com/sdk/home`
-Please note that **they have Ubuntu packages**:
 
-`wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -`
-`sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.1.108-bionic.list http://packages.lunarg.com/vulkan/1.1.108/lunarg-vulkan-1.1.108-bionic.list`
-`sudo apt update`
-`sudo apt install vulkan-sdk`
+Please note that **they have Ubuntu packages**:
 
 ![](image.png)
 
