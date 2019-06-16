@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <cmath>
 
-#include "lodepng.h" //Used for png encoding.
+#include "Bitmap.h" // Save bmp file
 
 #include <iostream>
 
@@ -59,16 +59,16 @@ private:
 
     We will be creating a simple compute pipeline in this application. 
     */
-    VkPipeline pipeline;
+    VkPipeline       pipeline;
     VkPipelineLayout pipelineLayout;
-    VkShaderModule computeShaderModule;
+    VkShaderModule   computeShaderModule;
 
     /*
     The command buffer is used to record commands, that will be submitted to a queue.
 
     To allocate such command buffers, we use a command pool.
     */
-    VkCommandPool commandPool;
+    VkCommandPool   commandPool;
     VkCommandBuffer commandBuffer;
 
     /*
@@ -79,8 +79,8 @@ private:
     A single descriptor represents a single resource, and several descriptors are organized
     into descriptor sets, which are basically just collections of descriptors.
     */
-    VkDescriptorPool descriptorPool;
-    VkDescriptorSet descriptorSet;
+    VkDescriptorPool      descriptorPool;
+    VkDescriptorSet       descriptorSet;
     VkDescriptorSetLayout descriptorSetLayout;
 
     /*
@@ -88,10 +88,9 @@ private:
 
     The memory that backs the buffer is bufferMemory. 
     */
-    VkBuffer buffer;
+    VkBuffer       buffer;
     VkDeviceMemory bufferMemory;
-        
-    uint32_t bufferSize; // size of `buffer` in bytes.
+    uint32_t       bufferSize; // size of `buffer` in bytes.
 
     std::vector<const char *> enabledLayers;
 
@@ -165,27 +164,27 @@ public:
 
     void saveRenderedImage()
     {
-        void* mappedMemory = NULL;
-        // Map the buffer memory, so that we can read from it on the CPU.
-        vkMapMemory(device, bufferMemory, 0, bufferSize, 0, &mappedMemory);
-        Pixel* pmappedMemory = (Pixel *)mappedMemory;
+      void* mappedMemory = NULL;
+      // Map the buffer memory, so that we can read from it on the CPU.
+      vkMapMemory(device, bufferMemory, 0, bufferSize, 0, &mappedMemory);
+      Pixel* pmappedMemory = (Pixel *)mappedMemory;
 
-        // Get the color data from the buffer, and cast it to bytes.
-        // We save the data to a vector.
-        std::vector<unsigned char> image;
-        image.reserve(WIDTH * HEIGHT * 4);
-        for (int i = 0; i < WIDTH*HEIGHT; i += 1) {
-            image.push_back((unsigned char)(255.0f * (pmappedMemory[i].r)));
-            image.push_back((unsigned char)(255.0f * (pmappedMemory[i].g)));
-            image.push_back((unsigned char)(255.0f * (pmappedMemory[i].b)));
-            image.push_back((unsigned char)(255.0f * (pmappedMemory[i].a)));
-        }
-        // Done reading, so unmap.
-        vkUnmapMemory(device, bufferMemory);
+      // Get the color data from the buffer, and cast it to bytes.
+      // We save the data to a vector.
+      std::vector<unsigned char> image;
+      image.reserve(WIDTH * HEIGHT * 4);
+      for (int i = 0; i < WIDTH*HEIGHT; i += 1)
+      {
+        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].r)));
+        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].g)));
+        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].b)));
+        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].a)));
+      }
 
-        // Now we save the acquired color data to a .png.
-        unsigned error = lodepng::encode("mandelbrot.png", image, WIDTH, HEIGHT);
-        if (error) printf("encoder error %d: %s", error, lodepng_error_text(error));
+      // Done reading, so unmap.
+      vkUnmapMemory(device, bufferMemory);
+
+      SaveBMP("mandelbrot.bmp", (const uint32_t*)image.data(), WIDTH, HEIGHT);
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallbackFn(
