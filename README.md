@@ -6,8 +6,9 @@ and only uses Vulkan to execute some computation on the GPU.
 For this demo, Vulkan is used to render the Mandelbrot set on the GPU. The demo is very simple, 
 and is only ~400LOC. **The code is heavily commented, so it should be useful for people interested in learning Vulkan**.
 
-The only depdendencies are Vulkan and `lodepng`. `lodepng` is simply used for png encoding. Vulkan can be installed
-from `lunarg.com`
+Vulkan validation layers can be installed from `https://vulkan.lunarg.com/sdk/home`
+
+Please note that **they do have Ubuntu packages!**
 
 ![](image.png)
 
