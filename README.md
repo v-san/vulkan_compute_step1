@@ -1,4 +1,4 @@
-# Vulkan Minimal Compute
+# Vulkan Minimal Compute (step 1)
 
 This is a simple demo that demonstrates how to use Vulkan for compute operations only.
 In other words, this demo does nothing related to graphics, 
