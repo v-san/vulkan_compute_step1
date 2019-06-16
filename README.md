@@ -8,7 +8,7 @@ and is only ~400LOC. **The code is heavily commented, so it should be useful for
 
 Vulkan validation layers can be installed from `https://vulkan.lunarg.com/sdk/home`
 
-Please note that **they have Ubuntu packages**:
+Please note that **they do have Ubuntu packages!**
 
 ![](image.png)
 
