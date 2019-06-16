@@ -150,7 +150,7 @@ public:
       createComputePipeline(device, descriptorSetLayout,
                             &computeShaderModule, &pipeline, &pipelineLayout);
 
-      createCommandBuffer(device, queueFamilyIndex, pipeline, pipelineLayout, &descriptorSet,
+      createCommandBuffer(device, queueFamilyIndex, pipeline, pipelineLayout,
                           &commandPool, &commandBuffer);
 
       recordCommandsTo(commandBuffer, pipeline, pipelineLayout, descriptorSet);
@@ -387,7 +387,7 @@ public:
       VK_CHECK_RESULT(vkCreateComputePipelines(a_device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, NULL, a_pPipeline));
     }
 
-    static void createCommandBuffer(VkDevice a_device, uint32_t queueFamilyIndex, VkPipeline a_pipeline, VkPipelineLayout a_layout, const VkDescriptorSet* a_pDS,
+    static void createCommandBuffer(VkDevice a_device, uint32_t queueFamilyIndex, VkPipeline a_pipeline, VkPipelineLayout a_layout,
                                     VkCommandPool* a_pool, VkCommandBuffer* a_pCmdBuff)
     {
       /*
