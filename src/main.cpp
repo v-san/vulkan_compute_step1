@@ -173,7 +173,6 @@ public:
     //
     static void saveRenderedImageFromDeviceMemory(VkDevice a_device, VkDeviceMemory a_bufferMemory, size_t a_offset, int a_width, int a_height)
     {
-
       const int a_bufferSize = a_width * sizeof(Pixel);
 
       void* mappedMemory = nullptr;
