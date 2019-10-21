@@ -173,27 +173,36 @@ public:
     //
     static void saveRenderedImageFromDeviceMemory(VkDevice a_device, VkDeviceMemory a_bufferMemory, size_t a_offset, int a_width, int a_height)
     {
-      const int a_bufferSize = a_width * a_height * 4;
+
+      const int a_bufferSize = a_width * sizeof(Pixel);
 
       void* mappedMemory = nullptr;
       // Map the buffer memory, so that we can read from it on the CPU.
-      vkMapMemory(a_device, a_bufferMemory, a_offset, a_bufferSize, 0, &mappedMemory);
-      Pixel* pmappedMemory = (Pixel *)mappedMemory;
 
-      // Get the color data from the buffer, and cast it to bytes.
       // We save the data to a vector.
       std::vector<unsigned char> image;
       image.reserve(a_width * a_height * 4);
-      for (int i = 0; i < (a_width * a_height); i += 1)
-      {
-        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].r)));
-        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].g)));
-        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].b)));
-        image.push_back((unsigned char)(255.0f * (pmappedMemory[i].a)));
-      }
 
-      // Done reading, so unmap.
-      vkUnmapMemory(a_device, a_bufferMemory);
+      for (int i = 0; i < a_height; i += 1) 
+      {
+        size_t offset = a_offset + i * a_width * sizeof(Pixel);
+
+        mappedMemory = nullptr;
+
+        // Get the color data from the buffer, and cast it to bytes.
+        vkMapMemory(a_device, a_bufferMemory, offset, a_bufferSize, 0, &mappedMemory);
+        Pixel* pmappedMemory = (Pixel *)mappedMemory;
+
+        for (int j = 0; j < a_width; j += 1)
+        {
+          image.push_back((unsigned char)(255.0f * (pmappedMemory[j].r)));
+          image.push_back((unsigned char)(255.0f * (pmappedMemory[j].g)));
+          image.push_back((unsigned char)(255.0f * (pmappedMemory[j].b)));
+          image.push_back((unsigned char)(255.0f * (pmappedMemory[j].a)));
+        }
+        // Done reading, so unmap.
+        vkUnmapMemory(a_device, a_bufferMemory);
+      }
 
       SaveBMP("mandelbrot.bmp", (const uint32_t*)image.data(), WIDTH, HEIGHT);
     }
