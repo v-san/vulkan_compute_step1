@@ -17,3 +17,5 @@ add_executable(vulkan_minimal_compute src/main.cpp src/vk_utils.h src/vk_utils.c
 set_target_properties(vulkan_minimal_compute PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
 target_link_libraries(vulkan_minimal_compute ${ALL_LIBS} )
+
+file(COPY shaders/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/shaders)
