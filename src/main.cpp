@@ -11,9 +11,9 @@
 
 #include <iostream>
 
-const int WIDTH          = 3200;  // Size of rendered mandelbrot set.
-const int HEIGHT         = 2400;  // Size of renderered mandelbrot set.
-const int WORKGROUP_SIZE = 32;    // Workgroup size in compute shader.
+const int WIDTH          = 1024;  // Size of rendered mandelbrot set.
+const int HEIGHT         = 1024;  // Size of renderered mandelbrot set.
+const int WORKGROUP_SIZE = 16;    // Workgroup size in compute shader.
 
 #ifdef NDEBUG
 constexpr bool enableValidationLayers = false;
