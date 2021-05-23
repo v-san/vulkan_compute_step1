@@ -27,7 +27,7 @@ private:
       float r, g, b, a;
   };
 
-  static constexpr unsigned cmdSubmitIterations = 4;
+  static constexpr unsigned cmdSubmitIterations = 1;
 
   VkInstance instance;
 
@@ -87,7 +87,7 @@ public:
     size_t bufferSize = sizeof(Pixel) * WIDTH * HEIGHT;
 
     std::cout << "creating resources ... " << std::endl;
-    createBuffer(device, physicalDevice, bufferSize, &fractalBuffer, &bufferMemory);
+    createBuffer(device, physicalDevice, bufferSize, &fractalBuffer, &bufferMemory, queueFamilyIndices);
 
     createDescriptorSetLayout(device, &descriptorSetLayout);
     createDescriptorSetForOurBuffer(device, fractalBuffer, bufferSize, &descriptorSetLayout,
@@ -96,6 +96,10 @@ public:
     std::cout << "compiling shaders  ... " << std::endl;
     createComputePipeline(device, descriptorSetLayout,
                           &computeShaderModule, &pipeline, &pipelineLayout);
+
+    VkBuffer stagingBuf;
+    VkDeviceMemory stagingMem;
+    createStagingBuffer(device, physicalDevice, bufferSize, &stagingBuf, &stagingMem);
 
     constexpr unsigned total = WIDTH * HEIGHT;
     constexpr unsigned perTileX = TILE_X;
@@ -152,36 +156,61 @@ public:
     VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fences[0]));
     VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fences[1]));
 
-    auto work = [](VkDevice d, VkQueue q, VkFence fence, std::vector<VkCommandBuffer> &cmds, size_t nIters){
-        auto perIter = cmds.size() / nIters;
-        for(size_t i = 0; i < nIters; ++i)
-        {
-          VkSubmitInfo submitInfo = {};
-          submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-          submitInfo.commandBufferCount = perIter;
-          submitInfo.pCommandBuffers = cmds.data() + i * perIter;
-          VK_CHECK_RESULT(vkQueueSubmit(q, 1, &submitInfo, fence));
-          VK_CHECK_RESULT(vkWaitForFences(d, 1, &fence, VK_TRUE, FENCE_TIMEOUT));
-          vkResetFences(d, 1, &fence);
-        }
+#ifdef MULTITHREADED_SUBMIT
+    auto work = [](VkDevice d, VkQueue &q, VkFence fence, std::vector<VkCommandBuffer> &cmds, size_t nIters){
+      std::cout << "thread " << std::this_thread::get_id() << " : using queue " << q << std::endl;
+      auto perIter = cmds.size() / nIters;
+      for(size_t i = 0; i < nIters; ++i)
+      {
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = perIter;
+        submitInfo.pCommandBuffers = cmds.data() + i * perIter;
+        VK_CHECK_RESULT(vkQueueSubmit(q, 1, &submitInfo, fence));
+        VK_CHECK_RESULT(vkWaitForFences(d, 1, &fence, VK_TRUE, FENCE_TIMEOUT));
+        vkResetFences(d, 1, &fence);
+      }
     };
     std::vector<std::thread> workers(2);
-    workers[0] = std::move(std::thread(work, device, queue1, fences[0], std::ref(cmds1), cmdSubmitIterations));
-    workers[1] = std::move(std::thread(work, device, queue2, fences[1], std::ref(cmds2), cmdSubmitIterations));
+    workers[0] = std::move(std::thread(work, device, std::ref(queue1), fences[0], std::ref(cmds1), cmdSubmitIterations));
+    workers[1] = std::move(std::thread(work, device, std::ref(queue2), fences[1], std::ref(cmds2), cmdSubmitIterations));
 
     for(size_t i = 0; i < 2; ++i)
     {
       if(workers[i].joinable())
         workers[i].join();
     }
+#else
+    auto perIter = cmds1.size() / cmdSubmitIterations;
+    for (size_t i = 0; i < cmdSubmitIterations; ++i)
+    {
+      {
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = perIter;
+        submitInfo.pCommandBuffers = cmds1.data() + i * perIter;
+        VK_CHECK_RESULT(vkQueueSubmit(queue1, 1, &submitInfo, fences[0]));
+      }
+      {
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = perIter;
+        submitInfo.pCommandBuffers = cmds2.data() + i * perIter;
+        VK_CHECK_RESULT(vkQueueSubmit(queue2, 1, &submitInfo, fences[1]));
+      }
+
+
+      VK_CHECK_RESULT(vkWaitForFences(device, 2, fences.data(), VK_TRUE, FENCE_TIMEOUT));
+      vkResetFences(device, 2, fences.data());
+    }
+
+#endif
+
 
     vkDestroyFence(device, fences[0], nullptr);
     vkDestroyFence(device, fences[1], nullptr);
 
     std::cout << "saving image       ... " << std::endl;
-    VkBuffer stagingBuf;
-    VkDeviceMemory stagingMem;
-    createStagingBuffer(device, physicalDevice, bufferSize, &stagingBuf, &stagingMem);
     saveRenderedImageFromDeviceMemory(device, fractalBuffer, stagingBuf, stagingMem, commandPool1, queue1, 0, WIDTH, HEIGHT);
     std::cout << "destroying all     ... " << std::endl;
 
@@ -274,7 +303,7 @@ public:
 
 
   static void createBuffer(VkDevice a_device, VkPhysicalDevice a_physDevice, const size_t a_bufferSize,
-                           VkBuffer* a_pBuffer, VkDeviceMemory* a_pBufferMemory)
+                           VkBuffer* a_pBuffer, VkDeviceMemory* a_pBufferMemory, const std::vector<uint32_t>& queueFamilyIndices)
   {
 
     VkBufferCreateInfo bufferCreateInfo = {};
@@ -282,9 +311,8 @@ public:
     bufferCreateInfo.size        = a_bufferSize;
     bufferCreateInfo.usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-    bufferCreateInfo.queueFamilyIndexCount = 2;
-    uint32_t fids[] = {0, 2};
-    bufferCreateInfo.pQueueFamilyIndices = fids;
+    bufferCreateInfo.queueFamilyIndexCount = queueFamilyIndices.size();
+    bufferCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
 
     VK_CHECK_RESULT(vkCreateBuffer(a_device, &bufferCreateInfo, nullptr, a_pBuffer));
 
