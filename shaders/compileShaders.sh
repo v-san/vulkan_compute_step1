@@ -1,1 +1,1 @@
-/home/vs/Software/glslang/bin/glslangValidator -V shader.comp -o comp.spv --D GLSL
+glslangValidator -V shader.comp -o comp.spv --D GLSL

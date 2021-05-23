@@ -24,7 +24,7 @@ layout( push_constant ) uniform kernelIntArgs
 void main()
 {
 
-  if(gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
+  if(gl_GlobalInvocationID.x >= TILE_X || gl_GlobalInvocationID.y >= TILE_Y)
     return;
 
   float x = float(gl_GlobalInvocationID.x + pcData.offsetX) / float(WIDTH);

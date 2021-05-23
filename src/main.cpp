@@ -283,7 +283,7 @@ public:
     bufferCreateInfo.usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
     bufferCreateInfo.queueFamilyIndexCount = 2;
-    uint32_t fids[] ={0, 2};
+    uint32_t fids[] = {0, 2};
     bufferCreateInfo.pQueueFamilyIndices = fids;
 
     VK_CHECK_RESULT(vkCreateBuffer(a_device, &bufferCreateInfo, nullptr, a_pBuffer));

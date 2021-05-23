@@ -3,7 +3,7 @@
 
 #define WIDTH 2048
 #define HEIGHT 2048
-#define WORKGROUP_SIZE 32
+#define WORKGROUP_SIZE 16
 
 #define TILE_X 128
 #define TILE_Y 128
