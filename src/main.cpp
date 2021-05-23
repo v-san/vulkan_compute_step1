@@ -79,8 +79,6 @@ public:
 
     physicalDevice = vk_utils::FindPhysicalDevice(instance, true, deviceId);
 
-    uint32_t queueFamilyIndex = vk_utils::GetComputeQueueFamilyIndex(physicalDevice);
-
     device = vk_utils::CreateLogicalDevice(queueFamilyIndices, physicalDevice, enabledLayers);
 
     vkGetDeviceQueue(device, queueFamilyIndices[0], 0, &queue1);
@@ -123,7 +121,6 @@ public:
 
     createCommandBuffers(device, commandPool1, cmds1, cmds1.size());
     createCommandBuffers(device, commandPool2, cmds2, cmds2.size());
-
 
     size_t idx1 = 0;
     size_t idx2 = 0;

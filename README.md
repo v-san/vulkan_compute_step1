@@ -7,7 +7,7 @@ For this demo, Vulkan is used to render the Mandelbrot set on the GPU.
 
 # Demo
 
-The application launches a compute shader that renders the mandelbrot set, by rendering it into a storage fractalBuffer.
+The application launches a compute shader that renders the mandelbrot set, by rendering it into a storage fractalBuffer. The compute work for image is split into smaller square tiles, which are submitted to different device queues.
 The storage fractalBuffer is then read from the GPU, and saved as `.bmp`. 
 
 ## Building
