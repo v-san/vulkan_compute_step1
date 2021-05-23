@@ -107,7 +107,7 @@ void vk_utils::InitDebugReportCallback(VkInstance a_instance, DebugReportCallbac
 }
 
 
-VkPhysicalDevice vk_utils::FindPhysicalDevice(VkInstance a_instance, bool a_printInfo, uint a_preferredDeviceId)
+VkPhysicalDevice vk_utils::FindPhysicalDevice(VkInstance a_instance, bool a_printInfo, unsigned a_preferredDeviceId)
 {
 
   uint32_t deviceCount;
@@ -187,6 +187,15 @@ uint32_t vk_utils::GetQueueFamilyIndex(VkPhysicalDevice a_physicalDevice, VkQueu
 VkDevice vk_utils::CreateLogicalDevice(const std::vector<uint32_t> &queueFamilyIndices, VkPhysicalDevice physicalDevice, const std::vector<const char *>& a_enabledLayers, std::vector<const char *> a_extentions)
 {
   std::vector<VkDeviceQueueCreateInfo> qI;
+
+  uint32_t queueFamilyCount = 0;
+  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+
+  std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+
+  assert(queueFamilyCount > queueFamilyIndices.size());
+
   float queuePriorities = 0.0;
   for(const auto& idx : queueFamilyIndices)
   {
@@ -200,7 +209,6 @@ VkDevice vk_utils::CreateLogicalDevice(const std::vector<uint32_t> &queueFamilyI
   }
 
   VkDeviceCreateInfo deviceCreateInfo = {};
-
 
   VkPhysicalDeviceFeatures deviceFeatures = {};
 

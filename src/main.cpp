@@ -27,7 +27,7 @@ private:
       float r, g, b, a;
   };
 
-  static constexpr uint cmdSubmitIterations = 4;
+  static constexpr unsigned cmdSubmitIterations = 4;
 
   VkInstance instance;
 
@@ -60,11 +60,11 @@ private:
   VkQueue queue1;
   VkQueue queue2;
 
-  static constexpr ulong FENCE_TIMEOUT = 100000000000l;
+  static constexpr unsigned long long FENCE_TIMEOUT = 100000000000ul;
 
 public:
 
-  void run(uint deviceId = 0, const std::vector<uint32_t> &queueFamilyIndices = {0, 2})
+  void run(unsigned deviceId = 0, const std::vector<uint32_t> &queueFamilyIndices = {0, 2})
   {
     assert(queueFamilyIndices.size() == 2);
 
@@ -97,13 +97,13 @@ public:
     createComputePipeline(device, descriptorSetLayout,
                           &computeShaderModule, &pipeline, &pipelineLayout);
 
-    constexpr uint total = WIDTH * HEIGHT;
-    constexpr uint perTileX = TILE_X;
-    constexpr uint perTileY = TILE_Y;
-    constexpr uint perTile = perTileX * perTileY;
-    constexpr uint nTilesX  = WIDTH / perTileX;
-    constexpr uint nTilesY  = HEIGHT / perTileY;
-    constexpr uint nTiles  = nTilesX * nTilesY;
+    constexpr unsigned total = WIDTH * HEIGHT;
+    constexpr unsigned perTileX = TILE_X;
+    constexpr unsigned perTileY = TILE_Y;
+    constexpr unsigned perTile = perTileX * perTileY;
+    constexpr unsigned nTilesX  = WIDTH / perTileX;
+    constexpr unsigned nTilesY  = HEIGHT / perTileY;
+    constexpr unsigned nTiles  = nTilesX * nTilesY;
     std::vector<VkCommandBuffer> cmds1(nTiles / 2);
     std::vector<VkCommandBuffer> cmds2(nTiles / 2);
 
@@ -489,7 +489,7 @@ int main()
 {
   ComputeApplication app;
 
-  constexpr uint deviceId = 1;
+  constexpr unsigned deviceId = 1;
 
   try
   {

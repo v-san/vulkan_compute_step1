@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <sstream>
 
+
 namespace vk_utils
 {
 
@@ -29,7 +30,7 @@ namespace vk_utils
 
   VkInstance CreateInstance(bool a_enableValidationLayers, std::vector<const char *> a_extensions = std::vector<const char *>());
   void       InitDebugReportCallback(VkInstance a_instance, DebugReportCallbackFuncType a_callback, VkDebugReportCallbackEXT* a_debugReportCallback);
-  VkPhysicalDevice FindPhysicalDevice(VkInstance a_instance, bool a_printInfo, uint a_preferredDeviceId);
+  VkPhysicalDevice FindPhysicalDevice(VkInstance a_instance, bool a_printInfo, unsigned a_preferredDeviceId);
 
   uint32_t GetQueueFamilyIndex(VkPhysicalDevice a_physicalDevice, VkQueueFlagBits a_bits);
   uint32_t GetComputeQueueFamilyIndex(VkPhysicalDevice a_physicalDevice);
