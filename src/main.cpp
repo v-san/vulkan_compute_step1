@@ -7,6 +7,9 @@
 #include <cmath>
 #include <thread>
 #include <iostream>
+#include <chrono>
+
+// #define MULTITHREADED_SUBMIT
 
 #ifdef NDEBUG
 constexpr bool enableValidationLayers = false;
@@ -27,7 +30,8 @@ private:
       float r, g, b, a;
   };
 
-  static constexpr unsigned cmdSubmitIterations = 1;
+  static constexpr unsigned SUBMIT_ITERS = 1;
+  static constexpr uint32_t N_RUNS = 8;
 
   VkInstance instance;
 
@@ -108,8 +112,6 @@ public:
     constexpr unsigned nTilesX  = WIDTH / perTileX;
     constexpr unsigned nTilesY  = HEIGHT / perTileY;
     constexpr unsigned nTiles  = nTilesX * nTilesY;
-    std::vector<VkCommandBuffer> cmds1(nTiles / 2);
-    std::vector<VkCommandBuffer> cmds2(nTiles / 2);
 
     VkCommandPoolCreateInfo commandPoolCreateInfo = {};
     commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -123,92 +125,113 @@ public:
     commandPoolCreateInfo2.queueFamilyIndex = queueFamilyIndices[1];
     VK_CHECK_RESULT(vkCreateCommandPool(device, &commandPoolCreateInfo2, nullptr, &commandPool2));
 
-    createCommandBuffers(device, commandPool1, cmds1, cmds1.size());
-    createCommandBuffers(device, commandPool2, cmds2, cmds2.size());
 
-    size_t idx1 = 0;
-    size_t idx2 = 0;
-    for(size_t i = 0; i < nTilesY; ++i)
+    float average_time = 0.0f;
+
+    std::cout << "doing " << N_RUNS << " runs of computations ... " << std::endl;
+    for (size_t RUN = 0; RUN < N_RUNS; ++RUN)
     {
-      for(size_t j = 0; j < nTilesX; ++j)
+      std::vector<VkCommandBuffer> cmds1(nTiles / 2);
+      std::vector<VkCommandBuffer> cmds2(nTiles / 2);
+
+      createCommandBuffers(device, commandPool1, cmds1, cmds1.size());
+      createCommandBuffers(device, commandPool2, cmds2, cmds2.size());
+
+      size_t idx1 = 0;
+      size_t idx2 = 0;
+      for(size_t i = 0; i < nTilesY; ++i)
       {
-        if((i + j) % 2 == 0)
+        for(size_t j = 0; j < nTilesX; ++j)
         {
-          recordCommandsTo(cmds1[idx1], pipeline, pipelineLayout, descriptorSet,
-                           perTileX, perTileX * j, perTileY, perTileY * i);
-          idx1++;
+          if((i + j) % 2 == 0)
+          {
+            recordCommandsTo(cmds1[idx1], pipeline, pipelineLayout, descriptorSet,
+                             perTileX, perTileX * j, perTileY, perTileY * i);
+            idx1++;
+          }
+          else
+          {
+            recordCommandsTo(cmds2[idx2], pipeline, pipelineLayout, descriptorSet,
+                             perTileX, perTileX * j, perTileY, perTileY * i);
+            idx2++;
+          }
         }
-        else
+      }
+
+      auto start = std::chrono::high_resolution_clock::now();
+
+      std::vector<VkFence> fences(2);
+      VkFenceCreateInfo fenceCreateInfo = {};
+      fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      fenceCreateInfo.flags = 0;
+      VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fences[0]));
+      VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fences[1]));
+
+  #ifdef MULTITHREADED_SUBMIT
+      auto work = [](VkDevice d, VkQueue &q, VkFence fence, std::vector<VkCommandBuffer> &cmds, size_t nIters){
+        std::cout << "thread " << std::this_thread::get_id() << " : using queue " << q << std::endl;
+        auto perIter = cmds.size() / nIters;
+        for(size_t i = 0; i < nIters; ++i)
         {
-          recordCommandsTo(cmds2[idx2], pipeline, pipelineLayout, descriptorSet,
-                           perTileX, perTileX * j, perTileY, perTileY * i);
-          idx2++;
+          VkSubmitInfo submitInfo = {};
+          submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+          submitInfo.commandBufferCount = perIter;
+          submitInfo.pCommandBuffers = cmds.data() + i * perIter;
+          VK_CHECK_RESULT(vkQueueSubmit(q, 1, &submitInfo, fence));
+          VK_CHECK_RESULT(vkWaitForFences(d, 1, &fence, VK_TRUE, FENCE_TIMEOUT));
+          vkResetFences(d, 1, &fence);
         }
+      };
+      std::vector<std::thread> workers(2);
+      workers[0] = std::move(std::thread(work, device, std::ref(queue1), fences[0], std::ref(cmds1), SUBMIT_ITERS));
+      workers[1] = std::move(std::thread(work, device, std::ref(queue2), fences[1], std::ref(cmds2), SUBMIT_ITERS));
+
+      for(size_t i = 0; i < 2; ++i)
+      {
+        if(workers[i].joinable())
+          workers[i].join();
       }
+  #else
+      auto perIter = cmds1.size() / SUBMIT_ITERS;
+      for (size_t i = 0; i < SUBMIT_ITERS; ++i)
+      {
+        {
+          VkSubmitInfo submitInfo = {};
+          submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+          submitInfo.commandBufferCount = perIter;
+          submitInfo.pCommandBuffers = cmds1.data() + i * perIter;
+          VK_CHECK_RESULT(vkQueueSubmit(queue1, 1, &submitInfo, fences[0]));
+        }
+        {
+          VkSubmitInfo submitInfo = {};
+          submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+          submitInfo.commandBufferCount = perIter;
+          submitInfo.pCommandBuffers = cmds2.data() + i * perIter;
+          VK_CHECK_RESULT(vkQueueSubmit(queue2, 1, &submitInfo, fences[1]));
+        }
+
+
+        VK_CHECK_RESULT(vkWaitForFences(device, 2, fences.data(), VK_TRUE, FENCE_TIMEOUT));
+        vkResetFences(device, 2, fences.data());
+      }
+
+  #endif
+
+
+      vkDestroyFence(device, fences[0], nullptr);
+      vkDestroyFence(device, fences[1], nullptr);
+
+      vkFreeCommandBuffers(device, commandPool1, cmds1.size(), cmds1.data());
+      vkFreeCommandBuffers(device, commandPool2, cmds2.size(), cmds2.data());
+
+      auto end = std::chrono::high_resolution_clock::now();
+
+      float ms_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()/1000.f;
+
+      average_time += ms_elapsed;
     }
 
-    std::cout << "doing computations ... " << std::endl;
-
-    std::vector<VkFence> fences(2);
-    VkFenceCreateInfo fenceCreateInfo = {};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = 0;
-    VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fences[0]));
-    VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fences[1]));
-
-#ifdef MULTITHREADED_SUBMIT
-    auto work = [](VkDevice d, VkQueue &q, VkFence fence, std::vector<VkCommandBuffer> &cmds, size_t nIters){
-      std::cout << "thread " << std::this_thread::get_id() << " : using queue " << q << std::endl;
-      auto perIter = cmds.size() / nIters;
-      for(size_t i = 0; i < nIters; ++i)
-      {
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = perIter;
-        submitInfo.pCommandBuffers = cmds.data() + i * perIter;
-        VK_CHECK_RESULT(vkQueueSubmit(q, 1, &submitInfo, fence));
-        VK_CHECK_RESULT(vkWaitForFences(d, 1, &fence, VK_TRUE, FENCE_TIMEOUT));
-        vkResetFences(d, 1, &fence);
-      }
-    };
-    std::vector<std::thread> workers(2);
-    workers[0] = std::move(std::thread(work, device, std::ref(queue1), fences[0], std::ref(cmds1), cmdSubmitIterations));
-    workers[1] = std::move(std::thread(work, device, std::ref(queue2), fences[1], std::ref(cmds2), cmdSubmitIterations));
-
-    for(size_t i = 0; i < 2; ++i)
-    {
-      if(workers[i].joinable())
-        workers[i].join();
-    }
-#else
-    auto perIter = cmds1.size() / cmdSubmitIterations;
-    for (size_t i = 0; i < cmdSubmitIterations; ++i)
-    {
-      {
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = perIter;
-        submitInfo.pCommandBuffers = cmds1.data() + i * perIter;
-        VK_CHECK_RESULT(vkQueueSubmit(queue1, 1, &submitInfo, fences[0]));
-      }
-      {
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = perIter;
-        submitInfo.pCommandBuffers = cmds2.data() + i * perIter;
-        VK_CHECK_RESULT(vkQueueSubmit(queue2, 1, &submitInfo, fences[1]));
-      }
-
-
-      VK_CHECK_RESULT(vkWaitForFences(device, 2, fences.data(), VK_TRUE, FENCE_TIMEOUT));
-      vkResetFences(device, 2, fences.data());
-    }
-
-#endif
-
-
-    vkDestroyFence(device, fences[0], nullptr);
-    vkDestroyFence(device, fences[1], nullptr);
+    std::cout << "average computation time " << average_time / N_RUNS << " milliseconds" << std::endl;
 
     std::cout << "saving image       ... " << std::endl;
     saveRenderedImageFromDeviceMemory(device, fractalBuffer, stagingBuf, stagingMem, commandPool1, queue1, 0, WIDTH, HEIGHT);
@@ -417,8 +440,7 @@ public:
   static void createComputePipeline(VkDevice a_device, const VkDescriptorSetLayout& a_dsLayout,
                                     VkShaderModule* a_pShaderModule, VkPipeline* a_pPipeline, VkPipelineLayout* a_pPipelineLayout)
   {
-
-    std::vector<uint32_t> code = vk_utils::ReadFile("../shaders/comp.spv");
+    std::vector<uint32_t> code = vk_utils::ReadFile("shaders/comp.spv");
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.pCode    = code.data();
@@ -517,7 +539,7 @@ int main()
 {
   ComputeApplication app;
 
-  constexpr unsigned deviceId = 1;
+  constexpr unsigned deviceId = 0;
 
   try
   {
